@@ -149,5 +149,6 @@ async def main():
     await turn("right", 180, 100)
     await move("forward", 85)
     await turn("right", 180)
+    await light_matrix.write("Sleep")
 
 runloop.run(main())
