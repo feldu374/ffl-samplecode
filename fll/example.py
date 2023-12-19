@@ -130,17 +130,19 @@ async def calibrate(left_motor=port.A):
 
 async def perform_mission_1():
     light_matrix.write("1")
-    await move_arm("up", 50)
+    await move_arm("up", 60)
     await move("forward", 10, 40)
-    await turn("left", 25, turn_factor=TURN_FACTOR, speed=10)
+    await turn("left", 25, speed=20)
     await move("forward", 25, 40)
-    await turn("right", 30, turn_factor=TURN_FACTOR, speed=10)
+    await move_arm("down", 60)
+    await turn("right", 30, speed=50)
+    await move_arm("up", 60)
     await runloop.sleep_ms(500)
     await turn("left", 30)
     await move("backward", 25, 40)
     await turn("right", 30)
     await move("backward", 10)
-    await move_arm("down", 50)
+    await move_arm("down", 60)
 
 
 async def perform_mission_3():
