@@ -1,10 +1,11 @@
-from hub import light_matrix, sound
+from hub import light_matrix, sound, port, motion_sensor
 import runloop
-from hub import port, motion_sensor
+import color_sensor
 import motor
 import motor_pair
 import device
 import color
+import time
 
 
 # DEFAULT PARAMETERS
@@ -13,12 +14,16 @@ DEFAULT_SPEED = 20 # degrees per second
 PI = 3.1415926
 TURN_FACTOR = 1.638
 WHEEL_DIAMETER = 8.79
+BLACK_REFLECTION = 35
+WHITE_REFLECTION = 99
+MEDIUM_REFLECTION = (99 + 35) / 2
 
 
 # Two-wheel motor setup
 # Assuming ports connected: A, E
 motor_pair.pair(motor_pair.PAIR_1, port.A, port.E)
 MOVE_PAIR = motor_pair.PAIR_1
+LEFT_MOTOR = port.A
 
 
 # Attachment motor setup
@@ -96,6 +101,73 @@ async def move_arm(how: str = "down", degrees: float = 90, speed: float = 360, f
 
 
 #########################
+# Advance Movement
+#########################
+
+def steering_proportion(sensor_reflection: int):
+    steering = (sensor_reflection - MEDIUM_REFLECTION) * 1
+    return int(steering)
+
+
+def lf_stop_condition(current_time: int, current_degrees: int, color_sensor_stop: int, degrees_stop: int, time_stop: int):
+    conditions = [
+        # If stop time is set and time limit is reached
+        time_stop >= 0 and current_time >= time_stop,
+        # Or if stop distance is set and distance limit is reached
+        degrees_stop >= 0 and current_degrees >= degrees_stop,
+        # Or if second color sensor is set and it hits black (reflection below threshold)
+        color_sensor_stop >= 0 and device.ready(color_sensor_stop) and color_sensor.reflection(color_sensor_stop) <= MEDIUM_REFLECTION,
+    ]
+    if any(conditions):
+        print("Line following stop condition is met: ", conditions)
+    return any(conditions)
+
+
+async def line_follow(
+    speed: float,
+    color_sensor_follow: int,
+    color_sensor_stop: int = -1,
+    distance_stop: float = -1,
+    time_stop: int = -1,
+    left_motor: int = LEFT_MOTOR,
+):
+    """Line following with multiple options of stop conditions.
+
+    Args:
+        speed: speed cm/s
+        color_sensor_follow: the port of first color sensor (int)
+        color_sensor_stop: the port of second color sensor (int) for stop condition
+        distance_stop: fix distance to move (cms)
+        time_stop: fix time to move (seconds)
+        left_motor: left motor
+    """
+    MAX_TIME_MS = 30000 # 30 seconds
+    assert device.ready(color_sensor_follow)
+    assert device.ready(left_motor)
+    print("Move following line with {} color sensor: {}{}{}".format(
+        color_sensor_follow,
+        "" if time_stop == -1 else "stop after {} secs".format(time_stop),
+        "" if distance_stop == -1 else "stop after {} cms".format(distance_stop),
+        "" if color_sensor_stop == -1 else "stop if 2nd sensor hits black"
+    ))
+    motor.reset_relative_position(left_motor, 0)
+    factor = 1.0 / (PI * WHEEL_DIAMETER) * 360
+    rotate_speed = int(speed * factor)
+    degrees_stop = int(factor * distance_stop) if distance_stop >= 0 else -1
+    time_stop = time_stop * 1000 if time_stop >= 0 else MAX_TIME_MS
+    start = time.ticks_ms()
+    while time.ticks_ms() - start < time_stop:
+        current_time = time.ticks_ms() - start
+        current_degrees = abs(motor.relative_position(left_motor))
+        steering = steering_proportion(color_sensor.reflection(color_sensor_follow))
+        motor_pair.move(MOVE_PAIR, steering, velocity=rotate_speed - abs(steering))
+        if lf_stop_condition(current_time, current_degrees, color_sensor_stop, degrees_stop, time_stop):
+            break
+    print("Stop line following.")
+    motor_pair.stop(MOVE_PAIR)
+
+
+#########################
 # Utility functions
 #########################
 
@@ -129,7 +201,8 @@ async def calibrate(left_motor=port.A):
 #########################
 
 async def perform_mission_1():
-    light_matrix.write("1")
+    await light_matrix.write("1")
+    await runloop.sleep_ms(500)
     await move_arm("up", 60)
     await move("forward", 10, 40)
     await turn("left", 25, speed=20)
@@ -145,30 +218,9 @@ async def perform_mission_1():
     await move_arm("down", 60)
 
 
-async def perform_mission_3():
-    light_matrix.write("3")
-    await runloop.sleep_ms(1000)
-    await move_arm("up", 70)
-    await move("forward", 30, 30)
-    await turn("right", 90)
-    await move("forward", 44, 30)
-    await turn("left", 90)
-    await move("forward", 40, 30)
-    await move_arm("down", 70, 720)
-    await runloop.sleep_ms(500)
-    await move_arm("up", 70)
-    await turn("right", 180)
-    await move("forward", 40, 30)
-    await turn("right", 90)
-    await move("forward", 44, 30)
-    await turn("left", 90)
-    await move("forward", 10, 30)
-    await turn("left", 180)
-    await move_arm("down", 70)
-
-
 async def perform_mission_4_5():
-    light_matrix.write("4 & 5")
+    await light_matrix.write("4 & 5")
+    await runloop.sleep_ms(500)
     await move_arm("up", 70)
     await move("forward", 30, 30)
     await turn("right", 90)
@@ -192,7 +244,9 @@ async def perform_mission_4_5():
 
 async def main():
 
+    # await perform_mission_1()
     await perform_mission_4_5()
+    # await line_follow(speed=15, color_sensor_follow=port.B, color_sensor_stop=port.F)
 
 
 runloop.run(main())
