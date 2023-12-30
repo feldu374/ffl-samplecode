@@ -207,7 +207,7 @@ async def perform_mission_1():
     await move("forward", 10, 40)
     await turn("left", 25, speed=20)
     await move("forward", 25, 40)
-    await move_arm("down", 60)
+    await move_arm("down", 40)
     await turn("right", 30, speed=50)
     await move_arm("up", 60)
     await runloop.sleep_ms(500)
@@ -218,7 +218,7 @@ async def perform_mission_1():
     await move_arm("down", 60)
 
 
-async def perform_mission_4_5():
+async def perform_mission_3_5():
     await light_matrix.write("4 & 5")
     await runloop.sleep_ms(500)
     await move_arm("up", 70)
@@ -242,11 +242,44 @@ async def perform_mission_4_5():
     await turn("left", 90, 10)
 
 
+async def perform_mission_7():
+    await move_arm("down", 70)
+    await move("forward", 55, 20)
+    await move_arm("up", 35)
+    await turn("right", 35)
+    await move("forward", 18, 20)
+    await turn("left", 15)
+    await move_arm("up", 10)
+    await move("backward", 15, 80)
+    await turn("left", 20)
+    await move("backward", 55)
+
+
+async def perform_mission_8():
+    await move_arm("up", 70)
+    await move("forward", 68, 30)
+    await turn("left", 30)
+    await move("forward", 9)
+    await turn("right", 75)
+    await move_arm("down", 47)
+    await move("forward", 11)
+    await move("backward", 5)
+    await move_arm("up", 5)
+    await turn("left", 250, 1000)
+    await move_arm("up", 60)
+    await move("forward", 60, 30)
+    await turn("left", 180)
+    await move_arm("down", 60)
+
+
 async def main():
 
-    # await perform_mission_1()
-    await perform_mission_4_5()
+    #await perform_mission_1()
+    # await perform_mission_3_5()
     # await line_follow(speed=15, color_sensor_follow=port.B, color_sensor_stop=port.F)
+    # await perform_mission_7()
+    # await move_arm("up", 50, 2000)
+    await perform_mission_8()
 
 
 runloop.run(main())
